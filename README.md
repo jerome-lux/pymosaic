@@ -4,6 +4,8 @@ A Python module to create photomosaic images.
 This implementation use numba to speed up the mosaic building, but it can be slow when the number of tiles in the image pool is large.
 Currently, there is no transparency. Tiles are chosen based the distance (in RGB space) minimization between the average RGB values in a tile and the average RGB values in each box in target image.
 
+install using python setup.py install
+
 To create a photomosaic, you just need:
 - An target image
 - A pool of images with same shapes
