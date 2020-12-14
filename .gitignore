@@ -1,1 +1,5 @@
 .DS_Store
+# Compiled python modules.
+*.pyc
+
+/build
