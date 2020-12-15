@@ -7,7 +7,7 @@ import json
 from random import shuffle
 import shutil
 import numba as nb
-import scipy as sp
+from scipy.spatial import cKDTree
 
 #TODO: add an opacity setting
 #Add a script to make a mosaic in one step.
@@ -232,7 +232,7 @@ class MosaicMaker():
         with open(os.path.join(tiles_dir,'RGBdata.json'),'r') as f:
             self.tilesdata = json.load(f)  
             
-        self.kdtree = sp.spatial.cKDTree¶(self.tilesdata.items())
+        self.kdtree = cKDTree(list(self.tilesdata.values()))
        
     def build_mosaic(self,filename=None,reuse=0,randomize=True):
         
