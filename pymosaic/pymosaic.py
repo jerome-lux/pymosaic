@@ -11,7 +11,7 @@ from scipy.spatial import cKDTree
 
 #TODO: add an opacity setting
 #Add a script to make a mosaic in one step.
-#Test  cKDTree to speed up computations ? 
+#Note: cKDTree not faster than numba (up to 40k images)
 
 VALID_IMAGE_FORMATS = ['jpg','jpeg','png','bmp','tif']
 
