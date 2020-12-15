@@ -7,6 +7,7 @@ import json
 from random import shuffle
 import shutil
 import numba as nb
+import scipy as sp
 
 #TODO: add an opacity setting
 #Add a script to make a mosaic in one step.
@@ -230,6 +231,8 @@ class MosaicMaker():
          
         with open(os.path.join(tiles_dir,'RGBdata.json'),'r') as f:
             self.tilesdata = json.load(f)  
+            
+        self.kdtree = sp.spatial.cKDTree¶(self.tilesdata.items())
        
     def build_mosaic(self,filename=None,reuse=0,randomize=True):
         
@@ -254,7 +257,8 @@ class MosaicMaker():
        # Using numba
         totsize = np.prod(self.tiles)
         RGBarray = np.array(list(self.tilesdata.values()))
-        keylist = nb.typed.List(self.tilesdata.keys())
+        # keylist = nb.typed.List(self.tilesdata.keys())
+        keylist = list(self.tilesdata.keys())
 
         if reuse < len(self.tilesdata.values()):
             tilescounter = np.zeros(len(self.tilesdata.values()))
@@ -273,7 +277,9 @@ class MosaicMaker():
             i,j = divmod(n, w)
             k += 1
             print("Assembling tiles: {:04.1f}%".format(100 * k / totsize), flush=True, end='\r')
-            key = _get_best_match(self.pooled_image[i,j,:],keylist,RGBarray)
+            # key = _get_best_match(self.pooled_image[i,j,:],keylist,RGBarray)
+            index = self.kdtree.query(self.pooled_image[i,j,:])
+            key = keylist[index[1]]
             #Deleting the item in tilesdata is too slow. Just add a big value to all RGB values so that image won't be chosen
             if reuse < len(self.tilesdata):
                 ind = keylist.index(key)
