@@ -261,7 +261,7 @@ class MosaicMaker():
         """
         
         if method != self._compute_dist_method:
-            self.get_tiles_stats()
+            self.get_tiles_stats(self._tiles_dir,method)
         
         #Compute average (R,G,B) values in boxes in original image if needed
         if not self.image_stats_computed:
