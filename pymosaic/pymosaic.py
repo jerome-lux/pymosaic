@@ -41,10 +41,10 @@ def _resize(imfile,datadict,target_dir,size=(64,64),order=2,optimisation=3):
     datadict[os.path.basename(imfile)] = [npim[:,:,0].mean(),npim[:,:,1].mean(),npim[:,:,2].mean()]
     return datadict
 
-def compute_RGB_data(imfile,datadict):
+def compute_RGB_data(imfile,datadict,input_dir):
 
     npim = np.array(Image.open(imfile))
-    datadict[os.path.basename(imfile)] = [npim[:,:,0].mean(),npim[:,:,1].mean(),npim[:,:,2].mean()]
+    datadict[os.path.relpath(imfile,input_dir)] = [npim[:,:,0].mean(),npim[:,:,1].mean(),npim[:,:,2].mean()]
     return datadict
 
 def create_tileset(input_dir, target_dir, size=(64, 64), max_im=None, replace=False, ncpu=cpu_count()):
