@@ -1,1 +1,1 @@
-from pymosaic import create_tileset, MosaicMaker
+from pymosaic.pymosaic import create_tileset, MosaicMaker
