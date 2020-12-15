@@ -98,7 +98,7 @@ def create_RGB_stats(input_dir,ncpu=cpu_count()):
     
     manager = Manager()
     imdata = manager.dict()
-    f = partial(compute_RGB_data,datadict=imdata)
+    f = partial(compute_RGB_data,datadict=imdata,input_dir=input_dir)
     with Pool(ncpu) as pool:
         pool.map(f,images)
         pool.close()

@@ -7,7 +7,7 @@ setup(name='pymosaic',
       author='Jerome Lux',
       description='Module to create image mosaic',
       packages=find_packages(include=['pymosaic','pymosaic.*']),
-      install_requires=['numpy>=1.18.5',
+      install_requires=['numpy',
                         'Pillow',
                         'numba>=0.50.1']
       )
