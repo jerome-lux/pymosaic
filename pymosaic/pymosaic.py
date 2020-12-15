@@ -131,7 +131,7 @@ def _get_best_match(x,keylist,RGBarray):
 
 class MosaicMaker():
     
-    def __init__(self,input_image,tiles_dir,target_image=None,tilesize=(50,50),mintiles=100):
+    def __init__(self,input_image,tiles_dir,target_image=None,tilesize=(50,50),mintiles=100,method='brute-force'):
         
         """tiles_dir: directory where the tiles are stored
         input_image: path to the input image to be "mosaicified"
@@ -147,8 +147,14 @@ class MosaicMaker():
         self._tilesize = tilesize
         self._mintiles = mintiles
         
+        if method not in ["kdtree,brute-force"]:
+            print("method to find best tiles must either {} or {}".format("kdtree","brute-force") )
+            print("Set it to default (brute-force")
+            self._compute_dist_method = 'brute-force'
+        self._compute_dist_method = method
+        
         #Get tiles (R,G,B) average values for each image in the tile directory
-        self.get_tiles_stats(self._tiles_dir)
+        self.get_tiles_stats(self._tiles_dir,self._compute_dist_method)
         
         self.image_stats_computed = False
           
@@ -188,6 +194,7 @@ class MosaicMaker():
     def tiles_dir(self,tiles_dir):
         self._tiles_dir = tiles_dir
         self.get_tiles_stats(self._tiles_dir)
+
     
     def compute_image_stats(self,save=False):
                 
@@ -218,26 +225,44 @@ class MosaicMaker():
     
         self.image_stats_computed = True    
     
-    def get_tiles_stats(self,tiles_dir): 
+    def get_tiles_stats(self,tiles_dir,method='brute-force'): 
+        
         """Get the RGB data of the tileset
         If RGBdata.json does not exist in the tiles directory, it is computed
         """
-        
-        print("Get RGB values of tiles")
         
         if not os.path.exists(os.path.join(tiles_dir,'RGBdata.json')):
             print("Computing RGB stats of tile images")
             create_RGB_stats(tiles_dir)
          
         with open(os.path.join(tiles_dir,'RGBdata.json'),'r') as f:
+            print("Reading RGBdata.json to get RGB values of tiles")
             self.tilesdata = json.load(f)  
+        
+        self.RGBarray = np.array(list(self.tilesdata.values()))
+        
+        if method not in ["brute-force","kdtree"]:
+            print ("Method to minimize RGB distance must be either {} or {}".format("brute-force","kdtree") )
+            print("Set it to default (brute-force")
+            self._compute_dist_method = 'brute-force'
+        else:
+            self._compute_dist_method = method
+        
+        if self._compute_dist_method == 'brute-force':  
+            self.keylist = nb.typed.List(self.tilesdata.keys())
             
-        self.kdtree = cKDTree(list(self.tilesdata.values()))
+        elif self._compute_dist_method == 'kdtree':
+            self.keylist = list(self.tilesdata.keys())
+            self.kdtree = cKDTree(list(self.tilesdata.values()))
        
-    def build_mosaic(self,filename=None,reuse=0,randomize=True):
+    def build_mosaic(self,filename=None,reuse=0,randomize=True,method="brute-force"):
         
         """parallel implementation is slower if tile pool size is small
         """
+        
+        if method != self._compute_dist_method:
+            self.get_tiles_stats()
+        
         #Compute average (R,G,B) values in boxes in original image if needed
         if not self.image_stats_computed:
             self.compute_image_stats()
@@ -256,10 +281,7 @@ class MosaicMaker():
 
        # Using numba
         totsize = np.prod(self.tiles)
-        RGBarray = np.array(list(self.tilesdata.values()))
-        # keylist = nb.typed.List(self.tilesdata.keys())
-        keylist = list(self.tilesdata.keys())
-
+        
         if reuse < len(self.tilesdata.values()):
             tilescounter = np.zeros(len(self.tilesdata.values()))
 
@@ -277,15 +299,19 @@ class MosaicMaker():
             i,j = divmod(n, w)
             k += 1
             print("Assembling tiles: {:04.1f}%".format(100 * k / totsize), flush=True, end='\r')
-            # key = _get_best_match(self.pooled_image[i,j,:],keylist,RGBarray)
-            index = self.kdtree.query(self.pooled_image[i,j,:])
-            key = keylist[index[1]]
+            
+            if self._compute_dist_method == 'brute-force':
+                key = _get_best_match(self.pooled_image[i,j,:],self.keylist,self.RGBarray)
+            elif self._compute_dist_method == 'kdtree':
+                index = self.kdtree.query(self.pooled_image[i,j,:])
+                key = self.keylist[index[1]]
+                
             #Deleting the item in tilesdata is too slow. Just add a big value to all RGB values so that image won't be chosen
             if reuse < len(self.tilesdata):
-                ind = keylist.index(key)
+                ind = self.keylist.index(key)
                 tilescounter[ind] += 1
                 if tilescounter[ind] > reuse:
-                    RGBarray[ind,:] += 1024 
+                    self.RGBarray[ind,:] += 1024 
             try:
                 self.mosaic_image[i*self._tilesize[0]:(i+1)*self._tilesize[0],
                                 j*self._tilesize[1]:(j+1)*self._tilesize[1],
