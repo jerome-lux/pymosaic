@@ -10,6 +10,7 @@ import numba as nb
 
 #TODO: add an opacity setting
 #Add a script to make a mosaic in one step.
+#Test  cKDTree to speed up computations ? 
 
 VALID_IMAGE_FORMATS = ['jpg','jpeg','png','bmp','tif']
 
