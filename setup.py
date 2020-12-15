@@ -8,6 +8,6 @@ setup(name='pymosaic',
       description='Module to create image mosaic',
       packages=find_packages(include=['pymosaic','pymosaic.*']),
       install_requires=['numpy>=1.18.5',
-                        'PIL>=7.2.0',
+                        'PIL',
                         'numba>=0.50.1']
       )
