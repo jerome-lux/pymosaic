@@ -5,10 +5,15 @@ A Python module to create photomosaic images.
 Currently, there is no transparency. Tiles are chosen based the distance (in RGB space) minimization between the average RGB values in a tile and the average RGB values in each zone in target image.
 
 Nearest neighbors computations can be done either using numba and a brute force approach or using cKDTree from scipy.
-Brute force tends to be a little faster for image database <50k (not tested for larger database).
+
+Brute force tends to be equivalent for image database <50k (not tested for larger database). 
+It is possible to create buckets of images if the total number of images is too large. The best tile in a randomly chosen bucket is returned at each position.
+
 Using brute force method, one can specify the number of times a tile is reused in the mosaic.  
 This is not possible using a kdtree, because we would need to rebuild the tree at each iteration.
 To add a little variety in the tiles, we can query randomly one of the k-th neighbors (when reuse value = k), and not always the nearest.
+
+kdtree seems a bit faster, even for small bucket size (why ?).
 
 ## Install
 install using python setup.py install  
@@ -59,4 +64,3 @@ To create a photomosaic, you just need:
 
 ## 4. Tips
 - Try different reuse values to tune the mosaic. With small reuse values, the produced mosaic could be less accurate, but it can creates interesting effects. High reuse values produce accurate mosaic, but with no tile variety in homogeneous zones.
-- Prefer brute-force when the number of images used for tiles is not too large.

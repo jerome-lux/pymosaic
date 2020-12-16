@@ -253,19 +253,23 @@ class MosaicMaker():
         else:
             self._compute_dist_method = method
         
-        self.RGBarray = np.array(list(self.tilesdata.values()))
-        
         if self._compute_dist_method == 'brute-force':  
             # self.keylist = nb.typed.List(self.tilesdata.keys())
-            # Create n buckets of images
-            allkeys = nb.typed.List(self.tilesdata.keys())
+            # Shuffle images list and data
+            temp = list(zip(list(self.tilesdata.keys()),list(self.tilesdata.values())))
+            shuffle(temp)
+            allkeys, self.RGBarray = zip(*temp)
+            self.RGBarray = np.array(self.RGBarray)
+            allkeys = nb.typed.List(allkeys)
+            #Creating n buckets of "bucket_size" images
             ntot = len(allkeys)
             n = int(np.ceil(len(allkeys) / self._bucket_size))
-            print("Creating {} buckets of {} tiles".format(n,self._bucket_size))
+            print("Creating {} buckets of {} tiles".format(n,min(self._bucket_size,self.RGBarray.size)))
             self.keylist = [allkeys[i*self._bucket_size:min((i+1)*self._bucket_size,ntot)] for i in range(n)]
             self.RGBarray = [self.RGBarray[i*self._bucket_size:min((i+1)*self._bucket_size,ntot)] for i in range(n)]
             
         elif self._compute_dist_method == 'kdtree':
+            self.RGBarray = np.array(list(self.tilesdata.values()))
             self.keylist = list(self.tilesdata.keys())
             self.kdtree = cKDTree(list(self.tilesdata.values()))
     
@@ -309,7 +313,8 @@ class MosaicMaker():
             np.random.shuffle(randomRange)
         else:
             randomRange = range(h*w)
-            
+        
+        #Now this can be parallelized with one bucket assigned to a set of the random coords
         for n in randomRange:
             i,j = divmod(n, w)
             k += 1
@@ -319,6 +324,8 @@ class MosaicMaker():
                 # key = _get_best_match(self.pooled_image[i,j,:],self.keylist,self.RGBarray)
                 bucket = np.random.randint(0,len(self.keylist))
                 key = _get_best_match(self.pooled_image[i,j,:],self.keylist[bucket],self.RGBarray[bucket])
+                #Deleting the item in tilesdata is too slow. Just add a big value to all RGB values so that image won't be chosen
+                #only works with brute force approach
                 if reuse < len(self.tilesdata):
                     # ind = self.keylist.index(key)
                     ind = self.keylist[bucket].index(key)
@@ -331,9 +338,6 @@ class MosaicMaker():
                 index = self.kdtree.query(self.pooled_image[i,j,:],k=reuse,eps=0.05)
                 key = self.keylist[index[1][np.random.randint(0,reuse)]]
                 
-            #Deleting the item in tilesdata is too slow. Just add a big value to all RGB values so that image won't be chosen
-            #only works with brute force approach
-            
             try:
                 self.mosaic_image[i*self._tilesize[0]:(i+1)*self._tilesize[0],
                                 j*self._tilesize[1]:(j+1)*self._tilesize[1],
