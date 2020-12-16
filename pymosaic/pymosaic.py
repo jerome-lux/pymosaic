@@ -10,8 +10,8 @@ import numba as nb
 from scipy.spatial import cKDTree
 
 #TODO: add an opacity setting
-#optimize brute force method by separating pool of images into subsets that would be chosen randomly.
 
+DEF_BUCKET_SIZE = 10000
 VALID_IMAGE_FORMATS = ['jpg','jpeg','png','bmp','tif']
 
 @nb.njit(error_model='numpy',parallel=True)
@@ -147,10 +147,15 @@ class MosaicMaker():
         self._mintiles = mintiles
         
         #Get tiles (R,G,B) average values for each image in the tile directory
+        self._bucket_size = DEF_BUCKET_SIZE
         self.get_tiles_stats(self._tiles_dir,method)
         
         self.image_stats_computed = False
-          
+    
+    @property
+    def bucket_size(self):
+        return self._bucket_size
+    
     @property
     def input_image_filename(self):
         return self._input_image_filename
@@ -166,6 +171,11 @@ class MosaicMaker():
     @property
     def tiles_dir(self):
         return self._tiles_dir
+    
+    @bucket_size.setter
+    def bucket_size(self,bucket_size):
+        self._bucket_size = bucket_size
+        self._set_distance_computing_method(self._compute_dist_method)
     
     @input_image_filename.setter
     def input_image_filename(self,input_image):
@@ -218,7 +228,7 @@ class MosaicMaker():
     
         self.image_stats_computed = True    
     
-    def get_tiles_stats(self,tiles_dir,method='brute-force',bucket_size=5000): 
+    def get_tiles_stats(self,tiles_dir,method='brute-force'): 
         
         """Get the RGB data of the tileset
         If RGBdata.json does not exist in the tiles directory, it is computed
@@ -232,37 +242,40 @@ class MosaicMaker():
             print("Loading RGBdata.json")
             self.tilesdata = json.load(f)  
     
-        self.RGBarray = np.array(list(self.tilesdata.values()))
-    
         self._set_distance_computing_method(method)
     
     def _set_distance_computing_method(self,method):
         
         if method not in ["brute-force","kdtree"]:
             print ("Method to minimize RGB distance must be either {} or {}".format("brute-force","kdtree") )
-            print("Set it to default (brute-force")
+            print("Set it to default (brute-force)")
             self._compute_dist_method = 'brute-force'
         else:
             self._compute_dist_method = method
+        
+        self.RGBarray = np.array(list(self.tilesdata.values()))
         
         if self._compute_dist_method == 'brute-force':  
             # self.keylist = nb.typed.List(self.tilesdata.keys())
             # Create n buckets of images
             allkeys = nb.typed.List(self.tilesdata.keys())
-            n = int(np.ceil(allkeys.size / bucket_size))
-            self.keylist = [allkeys[i*n:min((i+1)*bucket_size,allkeys.size)] for i in range(n)]
-            self.RGBarray = [self.RGBarray[i*n:min((i+1)*bucket_size,self.RGBarray.size)] for i in range(n)]
+            ntot = len(allkeys)
+            n = int(np.ceil(len(allkeys) / self._bucket_size))
+            print("Creating {} buckets of {} tiles".format(n,self._bucket_size))
+            self.keylist = [allkeys[i*self._bucket_size:min((i+1)*self._bucket_size,ntot)] for i in range(n)]
+            self.RGBarray = [self.RGBarray[i*self._bucket_size:min((i+1)*self._bucket_size,ntot)] for i in range(n)]
             
         elif self._compute_dist_method == 'kdtree':
             self.keylist = list(self.tilesdata.keys())
             self.kdtree = cKDTree(list(self.tilesdata.values()))
     
-    def build_mosaic(self,filename=None,reuse=0,randomize=True,method="brute-force"):
+    def build_mosaic(self,filename=None,reuse=0,randomize=True,method="brute-force",bucket_size=DEF_BUCKET_SIZE):
         
         """parallel implementation is slower if tile pool size is small
         """
         
-        if method != self._compute_dist_method:
+        if method != self._compute_dist_method or bucket_size != self._bucket_size:
+            self._bucket_size = bucket_size
             self._set_distance_computing_method(method)
         
         #Compute average (R,G,B) values in boxes in original image if needed
@@ -306,6 +319,13 @@ class MosaicMaker():
                 # key = _get_best_match(self.pooled_image[i,j,:],self.keylist,self.RGBarray)
                 bucket = np.random.randint(0,len(self.keylist))
                 key = _get_best_match(self.pooled_image[i,j,:],self.keylist[bucket],self.RGBarray[bucket])
+                if reuse < len(self.tilesdata):
+                    # ind = self.keylist.index(key)
+                    ind = self.keylist[bucket].index(key)
+                    tilescounter[ind] += 1
+                    if tilescounter[ind] > reuse:
+                        # self.RGBarray[ind,:] += 1024 
+                        self.RGBarray[bucket][ind,:] += 1024 
                 
             elif self._compute_dist_method == 'kdtree':
                 index = self.kdtree.query(self.pooled_image[i,j,:],k=reuse,eps=0.05)
@@ -313,13 +333,7 @@ class MosaicMaker():
                 
             #Deleting the item in tilesdata is too slow. Just add a big value to all RGB values so that image won't be chosen
             #only works with brute force approach
-            if reuse < len(self.tilesdata):
-                # ind = self.keylist.index(key)
-                ind = self.keylist[bucket].index(key)
-                tilescounter[ind] += 1
-                if tilescounter[ind] > reuse:
-                    # self.RGBarray[ind,:] += 1024 
-                    self.RGBarray[bucket][ind,:] += 1024 
+            
             try:
                 self.mosaic_image[i*self._tilesize[0]:(i+1)*self._tilesize[0],
                                 j*self._tilesize[1]:(j+1)*self._tilesize[1],

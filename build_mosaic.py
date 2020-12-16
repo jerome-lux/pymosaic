@@ -11,7 +11,7 @@ parser.add_argument("-o", "--output", dest="output_image", default=None,
 parser.add_argument("--tiles_dir", dest="tiles_dir",
                     help="path to a directory containing the tiles")
 parser.add_argument("--method", dest="method", default="brute-force", type=str,
-                    help="Method used to find the nearest neighbors in RGB space('brute-force' or 'kdtree'). Default: 'brute-force')
+                    help="Method used to find the nearest neighbors in RGB space('brute-force' or 'kdtree'). Default: 'brute-force'")
 parser.add_argument("--reuse", dest="reuse", default=0,
                     help="number of times an image can be reused in the mosaic (only for brute-force)."
                     "\n When method = 'kdtree' and reuse=k, tiles are randomly chosen within the k-th nearest neighbors ")
