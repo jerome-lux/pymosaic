@@ -6,11 +6,13 @@ Currently, there is no transparency. Tiles are chosen based the distance (in RGB
 
 Nearest neighbors computations can be done either using numba and a brute force approach or using cKDTree from scipy.
 Brute force tends to be a little faster for image database <50k (not tested for larger database).
-Using brute force method, one can specify the number of times a tile is reused in the mosaic.
-This is not possible using a kdtree, but it is possible to add a little variety in the tiles choice using a random kth neighbors, and not always the first.
+Using brute force method, one can specify the number of times a tile is reused in the mosaic.  
+This is not possible using a kdtree, because we would need to rebuild the tree at each iteration.
+To add a little variety in the tiles, we can query randomly one of the k-th neighbors (when reuse value = k), and not always the nearest.
 
 ## Install
 install using python setup.py install  
+
 Requirements: numba, scipy, numpy
 
 
@@ -32,6 +34,7 @@ To create a photomosaic, you just need:
 ## 2. Create a MosaicMaker object:
 
     mosaicmaker = MosaicMaker(input_image="path/to/target/image",tiles_dir="path/to/images/pool/",mintiles120,tilesize=(50,50))
+    
     where:
     - input_image: target image
     - tiles_dir: directory containing images used as tiles (must be of the same size)
@@ -41,6 +44,7 @@ To create a photomosaic, you just need:
 ## 3. Build the mosaic :
 
     mosaic_image = mosaicmaker.build_mosaic(filename="path/to/mosaic/image.jpg,reuse=20,randomize=True,method='brute-force')
+    
     where:
     - filename is the name of the mosaic that will be created.  
       If None, it creates a file in current directory using the input_filename:  
@@ -55,4 +59,4 @@ To create a photomosaic, you just need:
 
 ## 4. Tips
 - Try different reuse values to tune the mosaic. With small reuse values, the produced mosaic could be less accurate, but it can creates interesting effects. High reuse values produce accurate mosaic, but with no tile variety in homogeneous zones.
-- Prefer brute-force when the number of images used for tiles is <100k
+- Prefer brute-force when the number of images used for tiles is not too large.
