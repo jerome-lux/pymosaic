@@ -1,8 +1,13 @@
 # Pymosaic
 
 A Python module to create photomosaic images.  
-This implementation use numba to speed up the mosaic building, but it can be slow when the number of tiles in the image pool is large.
-Currently, there is no transparency. Tiles are chosen based the distance (in RGB space) minimization between the average RGB values in a tile and the average RGB values in each box in target image.
+
+Currently, there is no transparency. Tiles are chosen based the distance (in RGB space) minimization between the average RGB values in a tile and the average RGB values in each zone in target image.
+
+Nearest neighbors computations can be done either using numba and a brute force approach or using cKDTree from scipy.
+Brute force tends to be a little faster for image database <50k (not tested for larger database).
+Using brute force method, one can specify the number of times a tile is reused in the mosaic.
+This is not possible using a kdtree, but it is possible to add a little variety in the tiles choice using a random kth neighbors, and not always the first.
 
 ## Install
 install using python setup.py install  
@@ -13,7 +18,7 @@ To create a photomosaic, you just need:
 - An target image
 - A pool of images with same shapes
 
-## 1. Create a pool of resized images:
+## 1. Create a pool of resized images (if needed):
 
     Use the function create_tileset(input_dir, target_dir, size=(64, 64), max_im=None, replace=False, ncpu=cpu_count())
     - input_dir: directory where images are stored (recursive search, so all images in subfolders are processed).
