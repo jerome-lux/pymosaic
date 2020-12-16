@@ -218,7 +218,7 @@ class MosaicMaker():
     
         self.image_stats_computed = True    
     
-    def get_tiles_stats(self,tiles_dir,method='brute-force'): 
+    def get_tiles_stats(self,tiles_dir,method='brute-force',bucket_size=5000): 
         
         """Get the RGB data of the tileset
         If RGBdata.json does not exist in the tiles directory, it is computed
@@ -246,7 +246,12 @@ class MosaicMaker():
             self._compute_dist_method = method
         
         if self._compute_dist_method == 'brute-force':  
-            self.keylist = nb.typed.List(self.tilesdata.keys())
+            # self.keylist = nb.typed.List(self.tilesdata.keys())
+            # Create n buckets of images
+            allkeys = nb.typed.List(self.tilesdata.keys())
+            n = int(np.ceil(allkeys.size / bucket_size))
+            self.keylist = [allkeys[i*n:min((i+1)*bucket_size,allkeys.size)] for i in range(n)]
+            self.RGBarray = [self.RGBarray[i*n:min((i+1)*bucket_size,self.RGBarray.size)] for i in range(n)]
             
         elif self._compute_dist_method == 'kdtree':
             self.keylist = list(self.tilesdata.keys())
@@ -298,17 +303,23 @@ class MosaicMaker():
             print("Assembling tiles: {:04.1f}%".format(100 * k / totsize), flush=True, end='\r')
             
             if self._compute_dist_method == 'brute-force':
-                key = _get_best_match(self.pooled_image[i,j,:],self.keylist,self.RGBarray)
+                # key = _get_best_match(self.pooled_image[i,j,:],self.keylist,self.RGBarray)
+                bucket = np.random.randint(0,len(self.keylist))
+                key = _get_best_match(self.pooled_image[i,j,:],self.keylist[bucket],self.RGBarray[bucket])
+                
             elif self._compute_dist_method == 'kdtree':
                 index = self.kdtree.query(self.pooled_image[i,j,:],k=reuse,eps=0.05)
                 key = self.keylist[index[1][np.random.randint(0,reuse)]]
                 
             #Deleting the item in tilesdata is too slow. Just add a big value to all RGB values so that image won't be chosen
-            if reuse < len(self.keylist):
-                ind = self.keylist.index(key)
+            #only works with brute force approach
+            if reuse < len(self.tilesdata):
+                # ind = self.keylist.index(key)
+                ind = self.keylist[bucket].index(key)
                 tilescounter[ind] += 1
                 if tilescounter[ind] > reuse:
-                    self.RGBarray[ind,:] += 1024 
+                    # self.RGBarray[ind,:] += 1024 
+                    self.RGBarray[bucket][ind,:] += 1024 
             try:
                 self.mosaic_image[i*self._tilesize[0]:(i+1)*self._tilesize[0],
                                 j*self._tilesize[1]:(j+1)*self._tilesize[1],
