@@ -10,8 +10,7 @@ import numba as nb
 from scipy.spatial import cKDTree
 
 #TODO: add an opacity setting
-#Add a script to make a mosaic in one step.
-#Can not use kdtree in the case we do not want to reuse tiles !
+#optimize brute force method by separating pool of images into subsets that would be chosen randomly.
 
 VALID_IMAGE_FORMATS = ['jpg','jpeg','png','bmp','tif']
 
@@ -326,9 +325,6 @@ class MosaicMaker():
                 self._tilesize[0],
                 self._tilesize[1],
                 os.path.basename(self._input_image_filename))
-
-            if randomize:
-                filename = 'Randomized-' + filename
                 
         PILim = Image.fromarray(self.mosaic_image)
         PILim.save(filename)
