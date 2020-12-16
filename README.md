@@ -4,7 +4,10 @@ A Python module to create photomosaic images.
 This implementation use numba to speed up the mosaic building, but it can be slow when the number of tiles in the image pool is large.
 Currently, there is no transparency. Tiles are chosen based the distance (in RGB space) minimization between the average RGB values in a tile and the average RGB values in each box in target image.
 
-install using python setup.py install
+## Install
+install using python setup.py install  
+Requirements: numba, scipy, numpy
+
 
 To create a photomosaic, you just need:
 - An target image
@@ -32,16 +35,19 @@ To create a photomosaic, you just need:
     
 ## 3. Build the mosaic :
 
-    mosaic_image = mosaicmaker.build_mosaic(filename="path/to/mosaic/image.jpg,reuse=20,randomize=True)
+    mosaic_image = mosaicmaker.build_mosaic(filename="path/to/mosaic/image.jpg,reuse=20,randomize=True,method='brute-force')
     where:
     - filename is the name of the mosaic that will be created.  
       If None, it creates a file in current directory using the input_filename:  
       "mosaic-reuse{XX}-{tilesinX}x{tilesinY}-TS{tilesizeX}x{}-{tilesizeY}" + input_image
-    - reuse: number of time a tile can be reused in the mosaic. Higher values creates better mosaic, but with less variety. Very low value could produce strange results... If the number of images in the tiles_dir is not sufficient, tiles will be reused (after all images have been used 'reused' times)
+    - reuse: number of time a tile can be reused in the mosaic. Higher values creates better mosaic, but with less variety. Very low value could produce strange results... If the number of images in the tiles_dir is not sufficient, tiles will be reused (after all images have been used 'reused' times). Note that this parameter has a different effect when used with kdtree. 
     - randomize: iterate the image randomly. Way better that sequentially, especially if the number of tile is small.  
+    - method: either 'brute-force (default) or 'kdtree'. kdtree is better to deal with large image database > 100k images for example. 
+    -When method='kdtree' the reuse args is used to add a bit of variety in the returned tiles. 
+    if reuse=k, each tiles is chosen randomly from the k-th nearest neighbors.
     
     build_mosaic also return the created mosaic image
 
 ## 4. Tips
 - Try different reuse values to tune the mosaic. With small reuse values, the produced mosaic could be less accurate, but it can creates interesting effects. High reuse values produce accurate mosaic, but with no tile variety in homogeneous zones.
-- Use max_im to limit the number of tiles in the tiles directory, as the computation time increases with the number of tiles.
+- Prefer brute-force when the number of images used for tiles is <100k

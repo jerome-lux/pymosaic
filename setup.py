@@ -9,5 +9,6 @@ setup(name='pymosaic',
       packages=find_packages(include=['pymosaic','pymosaic.*']),
       install_requires=['numpy',
                         'Pillow',
+                        'scipy',
                         'numba>=0.50.1']
       )
