@@ -10,7 +10,9 @@ import numba as nb
 from scipy.spatial import cKDTree
 
 #TODO: add an opacity setting
+#TODO: add the possibility to update the kdtree periodically to limit tile reuse (faster than brute-force for not too large set ?)
 
+EPS = 0.05
 DEF_BUCKET_SIZE = 10000
 VALID_IMAGE_FORMATS = ['jpg','jpeg','png','bmp','tif']
 
@@ -97,6 +99,8 @@ def create_RGB_stats(input_dir,ncpu=cpu_count()):
     images = [os.path.join(r, f) for r, d, filenames in os.walk(input_dir) for f in filenames 
                if os.path.splitext(f)[-1][1:].lower() in VALID_IMAGE_FORMATS]
     
+    print("Found {} images in {}".format(len(images),input_dir))
+    
     manager = Manager()
     imdata = manager.dict()
     f = partial(compute_RGB_data,datadict=imdata,input_dir=input_dir)
@@ -111,6 +115,7 @@ def create_RGB_stats(input_dir,ncpu=cpu_count()):
     #     os.remove(RGBdatafile)
     
     with open(RGBdatafile, 'w') as outfile:
+        print("Saving tiles RGB values in  {}".format(len(RGBdatafile)))
         json.dump(imdata.copy(), outfile) 
     
     return imdata
@@ -273,12 +278,9 @@ class MosaicMaker():
             self.keylist = list(self.tilesdata.keys())
             self.kdtree = cKDTree(list(self.tilesdata.values()))
     
-    def build_mosaic(self,filename=None,reuse=0,randomize=True,method="brute-force",bucket_size=DEF_BUCKET_SIZE):
-        
-        """parallel implementation is slower if tile pool size is small
-        """
-        
-        if method != self._compute_dist_method or bucket_size != self._bucket_size:
+    def build_mosaic(self,filename=None,reuse=0,randomize=True,method="brute-force",bucket_size=None,kdtree_eps=EPS):
+                
+        if method != self._compute_dist_method or (bucket_size is not None and bucket_size != self._bucket_size):
             self._bucket_size = bucket_size
             self._set_distance_computing_method(method)
         
@@ -324,20 +326,22 @@ class MosaicMaker():
                 # key = _get_best_match(self.pooled_image[i,j,:],self.keylist,self.RGBarray)
                 bucket = np.random.randint(0,len(self.keylist))
                 key = _get_best_match(self.pooled_image[i,j,:],self.keylist[bucket],self.RGBarray[bucket])
-                #Deleting the item in tilesdata is too slow. Just add a big value to all RGB values so that image won't be chosen
-                #only works with brute force approach
+                
                 if reuse < len(self.tilesdata):
                     # ind = self.keylist.index(key)
                     ind = self.keylist[bucket].index(key)
                     tilescounter[ind] += 1
                     if tilescounter[ind] > reuse:
+                        #Deleting the item in tilesdata is too slow. Just add a big value to RGB values so this image won't be chosen anymore
                         # self.RGBarray[ind,:] += 1024 
                         self.RGBarray[bucket][ind,:] += 1024 
                 
             elif self._compute_dist_method == 'kdtree':
-                index = self.kdtree.query(self.pooled_image[i,j,:],k=reuse,eps=0.05)
-                key = self.keylist[index[1][np.random.randint(0,reuse)]]
-                
+                index = self.kdtree.query(self.pooled_image[i,j,:],k=reuse,eps=kdtree_eps)
+                if reuse >1:
+                    key = self.keylist[index[1][np.random.randint(0,reuse)]]
+                else:
+                    key = self.keylist[index[1]]
             try:
                 self.mosaic_image[i*self._tilesize[0]:(i+1)*self._tilesize[0],
                                 j*self._tilesize[1]:(j+1)*self._tilesize[1],
@@ -347,12 +351,13 @@ class MosaicMaker():
                 
         #Saving mosaic
         if filename is None:
-            filename = "mosaic-reuse{}-{}x{}-TS{}x{}-{}".format(
+            filename = "mosaic-reuse{}-{}x{}-TS{}x{}-{}-{}".format(
                 reuse,
                 self.tiles[0],
                 self.tiles[1],
                 self._tilesize[0],
                 self._tilesize[1],
+                method,
                 os.path.basename(self._input_image_filename))
                 
         PILim = Image.fromarray(self.mosaic_image)
