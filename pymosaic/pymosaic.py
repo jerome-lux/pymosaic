@@ -300,7 +300,6 @@ class MosaicMaker():
         if np.prod(self.tiles) > len(self.tilesdata):
             print("Not enough tiles to make mosaic without reuse")
 
-       # Using numba
         totsize = np.prod(self.tiles)
         
         if reuse < len(self.tilesdata.values()):
@@ -333,8 +332,8 @@ class MosaicMaker():
                     tilescounter[ind] += 1
                     if tilescounter[ind] > reuse:
                         #Deleting the item in tilesdata is too slow. Just add a big value to RGB values so this image won't be chosen anymore
-                        # self.RGBarray[ind,:] += 1024 
-                        self.RGBarray[bucket][ind,:] += 1024 
+                        # self.RGBarray[ind,:] += 2048 
+                        self.RGBarray[bucket][ind,:] += 2048 
                 
             elif self._compute_dist_method == 'kdtree':
                 index = self.kdtree.query(self.pooled_image[i,j,:],k=reuse,eps=kdtree_eps)
