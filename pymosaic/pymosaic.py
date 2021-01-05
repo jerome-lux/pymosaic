@@ -7,8 +7,10 @@ import json
 from random import shuffle
 import shutil
 import numba as nb
+from copy import copy
 from scipy.spatial import cKDTree
 
+#TODO: regenerate tiles stats after building mosaic
 #TODO: add an opacity setting
 #TODO: add the possibility to update the kdtree periodically to limit tile reuse (faster than brute-force for not too large set ?)
 
@@ -287,6 +289,8 @@ class MosaicMaker():
         #Compute average (R,G,B) values in boxes in original image if needed
         if not self.image_stats_computed:
             self.compute_image_stats()
+            
+        temp_RGBdata = copy(self.RGBarray)
         
         mosaic_shape = (self.tiles[0] * self._tilesize[0],
                         self.tiles[1] * self._tilesize[1],
@@ -322,9 +326,9 @@ class MosaicMaker():
             print("Assembling tiles: {:04.1f}%".format(100 * k / totsize), flush=True, end='\r')
             
             if self._compute_dist_method == 'brute-force':
-                # key = _get_best_match(self.pooled_image[i,j,:],self.keylist,self.RGBarray)
+                # key = _get_best_match(self.pooled_image[i,j,:],self.keylist,temp_RGBdata)
                 bucket = np.random.randint(0,len(self.keylist))
-                key = _get_best_match(self.pooled_image[i,j,:],self.keylist[bucket],self.RGBarray[bucket])
+                key = _get_best_match(self.pooled_image[i,j,:],self.keylist[bucket],temp_RGBdata[bucket])
                 
                 if reuse < len(self.tilesdata):
                     # ind = self.keylist.index(key)
@@ -333,7 +337,7 @@ class MosaicMaker():
                     if tilescounter[ind] > reuse:
                         #Deleting the item in tilesdata is too slow. Just add a big value to RGB values so this image won't be chosen anymore
                         # self.RGBarray[ind,:] += 2048 
-                        self.RGBarray[bucket][ind,:] += 2048 
+                        temp_RGBdata[bucket][ind,:] += 2048 
                 
             elif self._compute_dist_method == 'kdtree':
                 index = self.kdtree.query(self.pooled_image[i,j,:],k=reuse,eps=kdtree_eps)
