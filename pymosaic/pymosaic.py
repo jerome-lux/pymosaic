@@ -7,7 +7,7 @@ import json
 from random import shuffle
 import shutil
 import numba as nb
-from copy import copy
+from copy import copy, deepcopy
 from scipy.spatial import cKDTree
 
 #TODO: regenerate tiles stats after building mosaic
@@ -290,7 +290,7 @@ class MosaicMaker():
         if not self.image_stats_computed:
             self.compute_image_stats()
             
-        temp_RGBdata = copy(self.RGBarray)
+        temp_RGBdata = deepcopy(self.RGBarray)
         
         mosaic_shape = (self.tiles[0] * self._tilesize[0],
                         self.tiles[1] * self._tilesize[1],
@@ -354,13 +354,14 @@ class MosaicMaker():
                 
         #Saving mosaic
         if filename is None:
-            filename = "mosaic-reuse{}-{}x{}-TS{}x{}-{}-{}".format(
+            filename = "mosaic-reuse{}-{}x{}-TS{}x{}-{}-B{}-{}".format(
                 reuse,
                 self.tiles[0],
                 self.tiles[1],
                 self._tilesize[0],
                 self._tilesize[1],
                 method,
+                len(self.RGBarray),
                 os.path.basename(self._input_image_filename))
                 
         PILim = Image.fromarray(self.mosaic_image)
