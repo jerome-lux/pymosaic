@@ -12,9 +12,11 @@ parser.add_argument("--max", dest="max",default=None,
                     help="Maximum number of images to resize")
 parser.add_argument("--size", dest="size", nargs=2, default=(64, 64),
                     help="Size of tiles in pixels: nx, ny")
+parser.add_argument("--crop_aspect_ratio", dest="crop_aspect_ratio", , default=None
+                    help="Image are cropped to respect the aspect ratio")
 
 parser.parse_args()
 
 args = parser.parse_args()
 
-create_tileset(args.input,args.output,size=args.size,max_im = args.max)
+create_tileset(args.input,args.output,size=args.size,max_im = args.max, crop_aspect_ratio=args.crop_aspect_ratio)
