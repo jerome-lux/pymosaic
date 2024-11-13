@@ -18,6 +18,7 @@ from scipy.spatial import cKDTree
 EPS = 0.05
 DEF_BUCKET_SIZE = 10000
 VALID_IMAGE_FORMATS = ['jpg', 'jpeg', 'png', 'bmp', 'tif']
+LCONV = np.array([0.2126, 0.7152, 0.0722])
 
 
 @nb.njit(error_model='numpy', parallel=True)
@@ -56,6 +57,8 @@ def _resize(imfile, datadict, target_dir, size=(64, 64), order=2, crop_aspect_ra
                             ch // 2 + ch % 2,
                             w - cw // 2,
                             h - ch // 2))
+    if image.mode != 'RGB' and image.mode != 'L':
+        image = image.convert('RGB')
 
     image = image.resize(size=(size[1], size[0]), resample=order, reducing_gap=optimisation)
     filename = os.path.splitext(os.path.basename(imfile))[0] + ".jpg"
@@ -64,9 +67,9 @@ def _resize(imfile, datadict, target_dir, size=(64, 64), order=2, crop_aspect_ra
     npim = np.array(image)
     if len(npim.shape) == 2 :
         m = npim[:, :].mean()
-        datadict[os.path.basename(imfile)] = [m, m, m]
+        datadict[os.path.basename(filename)] = [m, m, m]
     else:
-        datadict[os.path.basename(imfile)] = [npim[:, :, 0].mean(), npim[:, :, 1].mean(), npim[:, :, 2].mean()]
+        datadict[os.path.basename(filename)] = [npim[:, :, 0].mean(), npim[:, :, 1].mean(), npim[:, :, 2].mean()]
     return datadict
 
 
@@ -153,6 +156,24 @@ def create_RGB_stats(input_dir, ncpu=cpu_count()):
 
     return imdata
 
+# 0.2126 * R + 0.7152 * G + 0.0722 * B
+@nb.njit(parallel=True)
+def _get_best_match_with_luminance(x, keylist, RGBarray):
+
+    n = len(keylist)
+    dist = np.zeros(n).astype(np.float64)
+
+    for k in nb.prange(n):
+        target = np.zeros((4))
+        target[0:3] = x
+        target[-1] = np.sum(LCONV * x)
+        data = np.zeros((4))
+        data[0:3] = RGBarray[k, :]
+        data[-1] = np.sum(LCONV * RGBarray[k, :])
+        dist[k] = np.sum((target - data)**2)
+
+    # print(np.argmin(dist))
+    return keylist[np.argmin(dist)]
 
 @nb.njit(parallel=True)
 def _get_best_match(x, keylist, RGBarray):
@@ -170,7 +191,8 @@ def _get_best_match(x, keylist, RGBarray):
 class MosaicMaker():
 
     def __init__(self, input_image, tiles_dir, target_image=None,
-                 tilesize=(50, 50), mintiles=100, method='brute-force'):
+                 tilesize=(50, 50), mintiles=100, method='brute-force',
+                 use_luminance=False):
         """tiles_dir: directory where the tiles are stored
         input_image: path to the input image to be "mosaicified"
         target_image: name of the mosaic iamage (default= "mosaic-" + input_image name)
@@ -183,6 +205,7 @@ class MosaicMaker():
         self._input_image = np.array(Image.open(input_image).convert('RGB'))
         self._tilesize = tilesize
         self._mintiles = mintiles
+        self.use_luminance = use_luminance
         print("Input image size:", self._input_image.shape)
         print(f"Min number of tiles:{self._mintiles} of size {self._tilesize}")
 
@@ -314,13 +337,16 @@ class MosaicMaker():
             self.keylist = list(self.tilesdata.keys())
             self.kdtree = cKDTree(list(self.tilesdata.values()))
 
-
     def build_mosaic(self, filename=None, reuse=0, randomize=True, opacity=0,
-                     method="brute-force", bucket_size=None, kdtree_eps=EPS):
+                     method="brute-force", bucket_size=None, kdtree_eps=EPS,
+                     use_luminance=None):
 
         if method != self._compute_dist_method or (bucket_size is not None and bucket_size != self._bucket_size):
             self._bucket_size = bucket_size
             self._set_distance_computing_method(method)
+
+        if use_luminance is not None:
+            self.use_luminance = use_luminance
 
         # Compute average (R,G,B) values in boxes in original image if needed
         if not self.image_stats_computed:
@@ -364,7 +390,10 @@ class MosaicMaker():
             if self._compute_dist_method == 'brute-force':
                 # key = _get_best_match(self.pooled_image[i,j,:],self.keylist,temp_RGBdata)
                 bucket = np.random.randint(0, len(self.keylist))
-                key = _get_best_match(self.pooled_image[i, j, :], self.keylist[bucket], temp_RGBdata[bucket])
+                if self.use_luminance:
+                    key = _get_best_match_with_luminance(self.pooled_image[i, j, :], self.keylist[bucket], temp_RGBdata[bucket])
+                else:
+                    key = _get_best_match(self.pooled_image[i, j, :], self.keylist[bucket], temp_RGBdata[bucket])
 
                 if reuse < len(self.tilesdata):
                     # ind = self.keylist.index(key)
@@ -400,7 +429,7 @@ class MosaicMaker():
 
         # Saving mosaic
         if filename is None:
-            filename = "mosaic-reuse{}-{}x{}-TS{}x{}-{}-o{}-B{}-{}".format(
+            filename = "mosaic-reuse{}-{}x{}-TS{}x{}-{}-o{}-B{}-L{}-{}".format(
                 reuse,
                 self.tiles[0],
                 self.tiles[1],
@@ -409,6 +438,7 @@ class MosaicMaker():
                 method,
                 opacity,
                 len(self.RGBarray),
+                int(self.use_luminance),
                 os.path.basename(self._input_image_filename))
 
         print("Saving Mosaic...", end="\r")
