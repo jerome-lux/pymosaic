@@ -12,6 +12,11 @@ Using brute force method, one can specify the number of times a tile is reused i
 This is not possible using a kdtree, because we would need to rebuild the tree at each iteration.
 To add a little variety in the tiles whenusing kdtree, we can query randomly one of the k-th neighbors (when reuse value = k), and not always the nearest.
 
+![alt text](https://github.com/jerome-lux/pymosaic/blob/master/artworks/mosaic-reuse2-72x97-TS64x64-brute-force-B4-re_pont_094_11.jpg?raw=true)
+
+
+![alt text](https://github.com/jerome-lux/pymosaic/blob/master/artworks/mosaic-reuse2-77x148-TS64x64-brute-force-B4-tours_LR.jpg?raw=true)
+
 
 ## Install
 install using python setup.py install  
